@@ -1,0 +1,5 @@
+node_modules/
+*.tgz
+coverage/
+evals/using-file-discovery/latest-results.json
+.pi-skill-evals-bootstrap.lock

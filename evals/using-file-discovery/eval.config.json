@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skillName": "using-file-discovery",
+  "skillPath": "../../skills/using-file-discovery/SKILL.md",
+  "extensionPaths": [
+    "../../extensions/index.ts",
+    "./eval-filter-extension.ts"
+  ],
+  "allowExtensionExecution": true,
+  "tools": [
+    "read",
+    "discover_candidate_files"
+  ],
+  "allowHostMutation": false,
+  "conditions": [
+    "available",
+    "baseline"
+  ],
+  "trials": 1,
+  "timeoutMs": 180000,
+  "maxToolCalls": 12,
+  "maxAnswerChars": 8000
+}

@@ -1,0 +1,101 @@
+{
+  "name": "@aefree/pi-file-discovery",
+  "version": "0.1.0",
+  "description": "Bounded candidate-file discovery for unfamiliar repository research.",
+  "keywords": [
+    "pi-package",
+    "file-discovery",
+    "candidate-files",
+    "ripgrep"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/index.ts"
+    ],
+    "skills": [
+      "./skills/using-file-discovery/SKILL.md"
+    ]
+  },
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts/index.d.ts",
+      "import": "./dist/contracts/index.js"
+    },
+    "./contracts/v1": {
+      "types": "./dist/contracts/v1/index.d.ts",
+      "import": "./dist/contracts/v1/index.js"
+    },
+    "./contracts/v1/conformance": {
+      "types": "./dist/contracts/v1/conformance.d.ts",
+      "import": "./dist/contracts/v1/conformance.js"
+    },
+    "./core": {
+      "types": "./dist/core/file-discovery.d.ts",
+      "import": "./dist/core/file-discovery.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "extensions",
+    "skills/using-file-discovery",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build",
+    "test": "npm run build && node --test tests/*.test.mjs && tsx tests/extension-registration.test.ts && tsx tests/extension-composition.test.ts",
+    "eval:using-file-discovery": "node --experimental-strip-types evals/using-file-discovery/run-eval.ts",
+    "pack:check": "npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@aefree/pi-capability-registry": "^0.1.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "typebox": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "0.83.0",
+    "@earendil-works/pi-coding-agent": "0.83.0",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.6",
+    "typebox": "^1.3.8",
+    "typescript": "^5.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aefreedman/pi-file-discovery.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aefreedman/pi-file-discovery/issues"
+  },
+  "homepage": "https://github.com/aefreedman/pi-file-discovery#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}

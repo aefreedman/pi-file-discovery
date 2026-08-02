@@ -1,0 +1,91 @@
+name: Publish GitHub release
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing GitHub release tag to resume
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release-${{ github.repository }}-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Trusted npm publication
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: npm
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.19.0
+          cache: npm
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global "npm@^11.5.1"
+
+      - name: Verify release identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          expected_tag="v${version}"
+          test "${RELEASE_TAG}" = "${expected_tag}"
+          test "$(git rev-list -n 1 "${RELEASE_TAG}")" = "$(git rev-parse HEAD)"
+          grep -F "## [${version}]" CHANGELOG.md
+          gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Validate release artifact
+        run: |
+          rg --version
+          npm test
+          npm pack --dry-run
+          npm publish --dry-run --access public --ignore-scripts
+
+      - name: Publish or reconcile npm version
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          expected_head="$(git rev-parse HEAD)"
+          published_head="$(npm view "${name}@${version}" gitHead 2>/dev/null || true)"
+          if [[ -n "${published_head}" ]]; then
+            test "${published_head}" = "${expected_head}"
+            echo "${name}@${version} is already published from this commit; skipping."
+          else
+            npm publish --access public --provenance
+          fi
+
+      - name: Verify npm release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          test "$(npm view "${name}@${version}" gitHead)" = "$(git rev-parse HEAD)"

@@ -1,0 +1,150 @@
+[
+  {
+    "id": "unfamiliar-ownership",
+    "prompt_kind": "implicit",
+    "should_trigger": true,
+    "fixture": "repository",
+    "prompt": "I do not know which files own mission cancellation. Investigate the unfamiliar area and identify the best files to read next.",
+    "expected_checks": ["available_skill_file_read", "used_discovery", "explicit_modes", "ranked_candidates", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "multi-hypothesis",
+    "prompt_kind": "contextual",
+    "should_trigger": true,
+    "fixture": "repository",
+    "prompt": "A runtime teardown is intermittently leaving work behind. Ownership could be lifecycle, cancellation, or cleanup; research the unfamiliar implementation and tests, then recommend focused reads.",
+    "expected_checks": ["available_skill_file_read", "used_discovery", "multiple_hypotheses", "explicit_modes", "ranked_candidates", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "cross-root-discovery",
+    "prompt_kind": "contextual",
+    "should_trigger": true,
+    "fixture": "repository",
+    "prompt": "The ownership boundary may span src/runtime and packages/mobile. Search those two unfamiliar roots for handshake and cancellation hypotheses, then give candidate files rather than editing anything.",
+    "expected_checks": ["available_skill_file_read", "used_discovery", "multiple_roots", "explicit_modes", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "broad-unity-filtering",
+    "prompt_kind": "explicit",
+    "should_trigger": true,
+    "fixture": "unity",
+    "filter_fixture": "unity-broad",
+    "prompt": "Use file discovery for broad unfamiliar Unity activation ownership. Search the workspace for activation hypotheses and report the filtering disclosure; do not scan generated Library content as ordinary broad research.",
+    "expected_checks": ["available_skill_file_read", "used_discovery", "explicit_modes", "broad_filter_applied", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "exact-package-cache-intent",
+    "prompt_kind": "implicit",
+    "should_trigger": true,
+    "fixture": "unity",
+    "filter_fixture": "exact-generated",
+    "prompt": "The unfamiliar activation hook is specifically inside Library/PackageCache/com.example.activation. Find candidate files in that exact package cache root and explain any filter override.",
+    "expected_checks": ["available_skill_file_read", "used_discovery", "explicit_modes", "exact_package_cache_root", "filter_bypassed", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "scoped-absence",
+    "prompt_kind": "contextual",
+    "should_trigger": true,
+    "fixture": "repository",
+    "prompt": "Check the unfamiliar packages/mobile root for the literal MobileAbortBridge. If it is absent, state only the completed scoped evidence and do not make a repository-wide absence claim.",
+    "expected_checks": ["available_skill_file_read", "used_discovery", "explicit_modes", "scoped_absence", "no_global_absence_claim", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "fair-match-budget",
+    "prompt_kind": "explicit",
+    "should_trigger": true,
+    "fixture": "repository",
+    "prompt": "Use file discovery with three literal hypotheses (cancel, cleanup, handshake) across src/runtime and packages/mobile. Keep the total match budget at 6 so every query/root cell gets a fair chance; return compact ranked candidates.",
+    "expected_checks": ["available_skill_file_read", "used_discovery", "fair_budget", "compact_output", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "degraded-filter",
+    "prompt_kind": "implicit",
+    "should_trigger": true,
+    "fixture": "repository",
+    "filter_fixture": "degraded",
+    "prompt": "Research unfamiliar cancellation ownership with candidate-file discovery. The optional relevance filter is unavailable; continue with bounded native discovery and disclose the degraded filtering state.",
+    "expected_checks": ["available_skill_file_read", "used_discovery", "explicit_modes", "filter_degraded", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "explicit-filtered-root",
+    "prompt_kind": "explicit",
+    "should_trigger": true,
+    "fixture": "unity",
+    "filter_fixture": "exact-generated",
+    "prompt": "Use file discovery on the explicit filtered root Library/Generated for the literal GeneratedActivationMarker. It is intentional, so keep the selected scope and report the bypass rather than requesting confirmation.",
+    "expected_checks": ["available_skill_file_read", "used_discovery", "explicit_modes", "filter_bypassed", "explicit_filtered_root", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "omitted-mode-validation",
+    "prompt_kind": "explicit",
+    "should_trigger": true,
+    "fixture": "repository",
+    "prompt": "Try a candidate-file discovery request for cancellation with no literal-or-regex mode. Do not silently treat it as no matches; report the actionable validation requirement.",
+    "expected_checks": ["available_skill_file_read", "mode_validation", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "invalid-regex-cell",
+    "prompt_kind": "explicit",
+    "should_trigger": true,
+    "fixture": "repository",
+    "prompt": "Use candidate-file discovery with regex mode and the intentionally invalid pattern `([`. Report the invalid-regex cell and the bounded retry, not an absence conclusion.",
+    "expected_checks": ["available_skill_file_read", "used_discovery", "invalid_regex", "no_absence_from_invalid_regex", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "known-file-negative",
+    "prompt_kind": "negative-control",
+    "should_trigger": false,
+    "fixture": "repository",
+    "prompt": "Read src/runtime/MissionRuntime.ts around the cancel handler and summarize it.",
+    "expected_checks": ["available_skill_not_loaded", "not_used_discovery", "used_read", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "known-symbol-negative",
+    "prompt_kind": "negative-control",
+    "should_trigger": false,
+    "fixture": "repository",
+    "prompt": "Find references to MissionRuntime.cancel in src/runtime with a narrow literal lookup; do not use candidate-file discovery.",
+    "expected_checks": ["available_skill_not_loaded", "not_used_discovery", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "post-edit-negative",
+    "prompt_kind": "negative-control",
+    "should_trigger": false,
+    "fixture": "repository",
+    "prompt": "After the edit to src/runtime/MissionRuntime.ts, confirm the known cancel handler still contains the cleanup call. Do not use candidate-file discovery.",
+    "expected_checks": ["available_skill_not_loaded", "not_used_discovery", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "project-artifact-negative",
+    "prompt_kind": "negative-control",
+    "should_trigger": false,
+    "fixture": "repository",
+    "prompt": "Locate the project Markdown artifact that records the mobile cancellation decision. Use project artifact search rather than candidate-file discovery.",
+    "expected_checks": ["available_skill_not_loaded", "not_used_discovery", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "package-reference-negative",
+    "prompt_kind": "negative-control",
+    "should_trigger": false,
+    "fixture": "repository",
+    "prompt": "Consult the installed package reference for @example/mobile-runtime cancellation options; do not use candidate-file discovery.",
+    "expected_checks": ["available_skill_not_loaded", "not_used_discovery", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "explanation-only-negative",
+    "prompt_kind": "negative-control",
+    "should_trigger": false,
+    "fixture": "repository",
+    "prompt": "Explain in two sentences why completed no-match cells are scoped evidence rather than global proof. Do not inspect files or call discovery.",
+    "expected_checks": ["available_skill_not_loaded", "not_used_discovery", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  },
+  {
+    "id": "narrow-literal-negative",
+    "prompt_kind": "negative-control",
+    "should_trigger": false,
+    "fixture": "repository",
+    "prompt": "Run a narrow literal search for GeneratedActivationMarker only in Library/Generated. Do not use candidate-file discovery.",
+    "expected_checks": ["available_skill_not_loaded", "not_used_discovery", "no_files_changed", "bounded_tool_calls", "answer_under_8000"]
+  }
+]
