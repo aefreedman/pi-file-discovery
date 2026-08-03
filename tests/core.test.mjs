@@ -42,7 +42,7 @@ test("a stale selected root is scoped incomplete while valid roots continue; out
   const mixed = await executeFileDiscoveryV1(context(root), { queries: [literal], roots: ["src", "missing"] }, []);
   assert.equal(mixed.completeness, "partial"); assert.equal(mixed.coverage.ranCellCount, 1); assert.equal(mixed.coverage.completeCellCount, 1); assert.equal(mixed.coverage.incompleteCellCount, 1);
   assert.deepEqual(mixed.rootDiagnostics.map((entry) => [entry.displayPath, entry.status]), [["missing", "root_unavailable"]]);
-  assert.equal(mixed.cells.find((cell) => cell.status === "root_unavailable")?.root, path.join(realpathSync(root), "missing"));
+  assert.equal(mixed.cells.find((cell) => cell.status === "root_unavailable")?.root, path.join(realpathSync.native(root), "missing"));
   assert.match(formatFileDiscoveryReportV1(mixed), /Unavailable requested roots/);
   const onlyStale = await executeFileDiscoveryV1(context(root), { queries: [literal], roots: ["missing"] }, []);
   assert.equal(onlyStale.completeness, "blocked"); assert.equal(onlyStale.coverage.ranCellCount, 0); assert.equal(onlyStale.cells[0].status, "root_unavailable");
@@ -136,7 +136,7 @@ test("PATH skips workspace-contained rg candidates while an explicit absolute ov
     if (process.platform === "win32") copyFileSync(process.execPath, executable); else { writeFileSync(executable, "#!/bin/sh\nexit 0\n"); chmodSync(executable, 0o755); }
     symlinkSync(workspace, alias, process.platform === "win32" ? "junction" : "dir");
     await assert.rejects(() => resolveRipgrepExecutableV1(alias, { PATH: alias }), /No usable ripgrep executable/);
-    const configured = await resolveRipgrepExecutableV1(alias, { PI_FILE_DISCOVERY_RG_PATH: executable, PATH: "" }); assert.equal(configured.executable, realpathSync(executable));
+    const configured = await resolveRipgrepExecutableV1(alias, { PI_FILE_DISCOVERY_RG_PATH: executable, PATH: "" }); assert.equal(configured.executable, realpathSync.native(executable));
   } finally { rmSync(alias, { recursive: true, force: true }); }
 }));
 
