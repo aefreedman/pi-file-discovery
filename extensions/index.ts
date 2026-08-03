@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
+import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { createFileDiscoveryServiceRegistryV1, type FileDiscoveryRequestV1 } from "../src/contracts/v1/index.js";
 import { bindFileDiscoveryScopeV1, createFileDiscoveryServiceV1, DISCOVER_CANDIDATE_FILES_TOOL_NAME, loadFileDiscoveryOwnerV1 } from "../src/service.js";
@@ -29,5 +30,15 @@ export default function registerFileDiscovery(pi: ExtensionAPI): void {
       maxMatches: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000 })), maxMatchesPerFile: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000 })), maxSnippetChars: Type.Optional(Type.Integer({ minimum: 80, maximum: 4000 })), timeoutSecondsPerSearch: Type.Optional(Type.Integer({ minimum: 1, maximum: 120 })),
     }),
     async execute(_toolCallId, params, signal, _onUpdate, ctx) { const service = createFileDiscoveryServiceRegistryV1().snapshotCompatible(ctx.sessionManager)[0]; if (!service) throw new Error("discover_candidate_files service is unavailable for this session; restart or reload Pi."); const result = await service.search(bindFileDiscoveryScopeV1(Object.freeze({ cwd: ctx.cwd, signal: signal ?? new AbortController().signal }), ctx.sessionManager), params as FileDiscoveryRequestV1); const truncation = truncateHead(result.text, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES }); return { content: [{ type: "text", text: truncation.content }], details: { ...result.details, truncated: truncation.truncated, provenance: result.provenance } }; },
+    renderResult(result, { expanded, isPartial }, theme) {
+      if (isPartial) return new Text(theme.fg("warning", "Searching candidate files…"), 0, 0);
+      const output = result.content.filter((item) => item.type === "text").map((item) => item.text).join("\n");
+      if (expanded) return new Text(output, 0, 0);
+      const details = result.details as { candidates?: readonly unknown[]; completeness?: string; truncated?: boolean } | undefined;
+      const candidateCount = details?.candidates?.length ?? 0;
+      const status = details?.completeness ?? "complete";
+      const truncationNote = details?.truncated ? "; output truncated" : "";
+      return new Text(theme.fg("muted", `${candidateCount} candidate file${candidateCount === 1 ? "" : "s"}; ${status}${truncationNote} (expand for full report)`), 0, 0);
+    },
   });
 }

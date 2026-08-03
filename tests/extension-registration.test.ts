@@ -7,6 +7,9 @@ const tools = new Map<string, any>(); const handlers = new Map<string, Handler[]
 register({ registerTool: (tool: any) => tools.set(tool.name, tool), on: (event: string, handler: Handler) => handlers.set(event, [...(handlers.get(event) ?? []), handler]) } as any);
 assert.equal(tools.has("discover_candidate_files"), true);
 const tool = tools.get("discover_candidate_files"); const schema = tool.parameters; const serialized = JSON.stringify(schema); assert.deepEqual(schema.properties.queries.items.properties.mode.enum, ["literal", "regex"]); assert.deepEqual(schema.properties.filterMode.enum, ["recommended", "native-only"]); assert.equal(serialized.includes("anyOf"), false); assert.equal(serialized.includes("const"), false); assert.match(tool.description, /not a sandbox, permission system, or access-control boundary/i); assert(tool.promptGuidelines.some((guideline: string) => /do not control agent access/i.test(guideline)));
+const renderedResult = { content: [{ type: "text", text: "full bounded report" }], details: { candidates: [{ path: "candidate.ts" }], completeness: "complete" } }; const theme = { fg: (_color: string, text: string) => text };
+assert.match(tool.renderResult(renderedResult, { expanded: false, isPartial: false }, theme).render(120).join("\n"), /1 candidate file; complete/);
+assert.equal(tool.renderResult(renderedResult, { expanded: true, isPartial: false }, theme).render(120).join("\n").trimEnd(), "full bounded report");
 const scope = {}; const context = { cwd: process.cwd(), sessionManager: scope };
 for (const handler of handlers.get("session_start") ?? []) await handler({}, context);
 assert.equal(createFileDiscoveryServiceRegistryV1().snapshotCompatible(scope).length, 1);

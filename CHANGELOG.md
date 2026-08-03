@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.1] - 2026-08-03
+
+### Changed
+
+- Keep candidate-discovery tool results compact by default and expose the full bounded report through Pi's expandable tool view.
+
 ## [0.1.0] - 2026-08-02
 
 ### Added
