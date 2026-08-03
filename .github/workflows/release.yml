@@ -68,7 +68,21 @@ jobs:
           rg --version
           npm test
           npm pack --dry-run
-          npm publish --dry-run --access public --ignore-scripts
+
+      - name: Validate npm publication shape or reconcile existing version
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          expected_head="$(git rev-parse HEAD)"
+          published_head="$(npm view "${name}@${version}" gitHead 2>/dev/null || true)"
+          if [[ -n "${published_head}" ]]; then
+            test "${published_head}" = "${expected_head}"
+            echo "${name}@${version} already exists from this commit; skipping publish dry-run."
+          else
+            npm publish --dry-run --access public --ignore-scripts
+          fi
 
       - name: Publish or reconcile npm version
         shell: bash
