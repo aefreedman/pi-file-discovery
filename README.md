@@ -6,7 +6,7 @@
 
 Requirements:
 
-- Node.js 20 or newer
+- Node.js 22.19 or newer
 - [ripgrep](https://github.com/BurntSushi/ripgrep) available on `PATH`, or an absolute executable path in `PI_FILE_DISCOVERY_RG_PATH`
 - Pi 0.83 or newer
 

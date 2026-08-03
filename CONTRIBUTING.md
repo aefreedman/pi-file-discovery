@@ -4,7 +4,7 @@ Thanks for improving Pi File Discovery.
 
 ## Prerequisites
 
-- Node.js 20 or newer
+- Node.js 22.19 or newer
 - npm
 - ripgrep (`rg`) on `PATH`
 

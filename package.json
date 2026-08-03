@@ -58,7 +58,7 @@
     "pack:check": "npm pack --dry-run"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.19.0"
   },
   "dependencies": {
     "@aefree/pi-capability-registry": "^0.1.0"
