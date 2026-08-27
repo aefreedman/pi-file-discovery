@@ -20,7 +20,7 @@ To try the package for one session without installing it:
 pi -e npm:@aefree/pi-file-discovery
 ```
 
-Restart or reload Pi after changing package configuration. The package contributes the `discover_candidate_files` tool and the `using-file-discovery` skill.
+Restart or reload Pi after changing package configuration. In TUI/RPC sessions, the package shows one capability warning per Pi runtime when `rg` cannot be resolved or the explicit override is invalid. The warning never displays the configured path; install `rg` on `PATH` or correct `PI_FILE_DISCOVERY_RG_PATH`, then restart or reload Pi. In non-interactive modes, `discover_candidate_files` retains its actionable tool-time error when `rg` is unavailable. The package contributes the `discover_candidate_files` tool and the `using-file-discovery` skill.
 
 ## Choose the right tool
 

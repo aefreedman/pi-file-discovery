@@ -5,7 +5,7 @@ description: Discover candidate files in unfamiliar repository areas by testing 
 
 # Using File Discovery
 
-Use `discover_candidate_files` when implementation ownership or likely paths are unknown and several hypotheses must be tested before targeted reads.
+Use `discover_candidate_files` when implementation ownership or likely paths are unknown and several hypotheses must be tested before targeted reads. It requires ripgrep (`rg`) on `PATH`, or an absolute executable path in `PI_FILE_DISCOVERY_RG_PATH`. A startup capability warning means this prerequisite is unavailable or the override needs correction; fix the installation or setting, then restart or reload Pi.
 
 Every query requires `mode: "literal"` or `mode: "regex"`. Keep roots and hypotheses bounded; use ranked candidates and excerpts to choose a `read` follow-up. Treat `no_matches` as absence evidence only for completed cells.
 

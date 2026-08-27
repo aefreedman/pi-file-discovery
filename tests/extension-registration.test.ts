@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import register from "../extensions/index.ts";
 import { createFileDiscoveryServiceRegistryV1 } from "../src/contracts/v1/index.ts";
 
@@ -15,4 +16,21 @@ for (const handler of handlers.get("session_start") ?? []) await handler({}, con
 assert.equal(createFileDiscoveryServiceRegistryV1().snapshotCompatible(scope).length, 1);
 for (const handler of handlers.get("session_shutdown") ?? []) await handler({}, context);
 assert.equal(createFileDiscoveryServiceRegistryV1().snapshotCompatible(scope).length, 0);
+
+const priorOverride = process.env.PI_FILE_DISCOVERY_RG_PATH;
+const privateOverride = path.join(process.cwd(), "private-machine-rg-does-not-exist");
+const notifications: Array<{ message: string; type?: string }> = [];
+process.env.PI_FILE_DISCOVERY_RG_PATH = privateOverride;
+try {
+  const warningContext = { cwd: process.cwd(), sessionManager: {}, hasUI: true, ui: { notify: (message: string, type?: string) => notifications.push({ message, type }) } };
+  for (const handler of handlers.get("session_start") ?? []) await handler({}, warningContext);
+  for (const handler of handlers.get("session_start") ?? []) await handler({}, { ...warningContext, sessionManager: {} });
+  assert.equal(notifications.length, 1, "an unavailable ripgrep capability warns once per runtime");
+  assert.equal(notifications[0]?.type, "warning");
+  assert.match(notifications[0]?.message ?? "", /PI_FILE_DISCOVERY_RG_PATH/);
+  assert.match(notifications[0]?.message ?? "", /ripgrep \(rg\)/);
+  assert.equal(notifications[0]?.message.includes(privateOverride), false, "warning text must not expose configured paths");
+} finally {
+  if (priorOverride === undefined) delete process.env.PI_FILE_DISCOVERY_RG_PATH; else process.env.PI_FILE_DISCOVERY_RG_PATH = priorOverride;
+}
 console.log("PASS: discover_candidate_files registration");

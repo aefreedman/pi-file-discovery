@@ -130,14 +130,16 @@ test("declared root filter decisions and disclosures are explicit", async () => 
   const exact = await executeFileDiscoveryV1(context(root), { queries: [literal], roots: ["cache"] }, [bypass]); assert.equal(exact.roots[0].filterDecision, "bypassed"); assert.equal(exact.cells[0].filterDecision, "bypassed"); assert.match(formatFileDiscoveryReportV1(exact), /Exact requested generated\/cache root bypassed recommended filtering/);
 }));
 
-test("PATH skips workspace-contained rg candidates while an explicit absolute override is honored", async () => withFixture("pi-file-discovery-rg-selection-", async (workspace) => {
-  const alias = `${workspace}-alias`; const executable = path.join(workspace, process.platform === "win32" ? "rg.exe" : "rg");
+test("PATH skips workspace-contained rg candidates while valid and invalid overrides retain deterministic resolution", async () => withFixture("pi-file-discovery-rg-selection-", async (workspace) => {
+  const alias = `${workspace}-alias`; const executable = path.join(workspace, process.platform === "win32" ? "rg.exe" : "rg"); const external = mkdtempSync(path.join(tmpdir(), "pi-file-discovery-rg-path-")); const pathExecutable = path.join(external, process.platform === "win32" ? "rg.exe" : "rg");
   try {
-    if (process.platform === "win32") copyFileSync(process.execPath, executable); else { writeFileSync(executable, "#!/bin/sh\nexit 0\n"); chmodSync(executable, 0o755); }
+    if (process.platform === "win32") { copyFileSync(process.execPath, executable); copyFileSync(process.execPath, pathExecutable); } else { writeFileSync(executable, "#!/bin/sh\nexit 0\n"); writeFileSync(pathExecutable, "#!/bin/sh\nexit 0\n"); chmodSync(executable, 0o755); chmodSync(pathExecutable, 0o755); }
     symlinkSync(workspace, alias, process.platform === "win32" ? "junction" : "dir");
     await assert.rejects(() => resolveRipgrepExecutableV1(alias, { PATH: alias }), /No usable ripgrep executable/);
     const configured = await resolveRipgrepExecutableV1(alias, { PI_FILE_DISCOVERY_RG_PATH: executable, PATH: "" }); assert.equal(configured.executable, realpathSync.native(executable));
-  } finally { rmSync(alias, { recursive: true, force: true }); }
+    const resolvedFromPath = await resolveRipgrepExecutableV1(alias, { PATH: `${alias}${path.delimiter}${external}` }); assert.equal(resolvedFromPath.executable, realpathSync.native(pathExecutable));
+    await assert.rejects(() => resolveRipgrepExecutableV1(alias, { PI_FILE_DISCOVERY_RG_PATH: path.join(external, "missing-rg"), PATH: external }), /PI_FILE_DISCOVERY_RG_PATH must resolve/);
+  } finally { rmSync(alias, { recursive: true, force: true }); rmSync(external, { recursive: true, force: true }); }
 }));
 
 test("Windows UNC-shaped workspace requests use normal resolution rather than a blanket rejection", { skip: process.platform !== "win32" }, async () => withFixture("pi-file-discovery-unc-", async (root) => {

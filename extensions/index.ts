@@ -4,12 +4,30 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { createFileDiscoveryServiceRegistryV1, type FileDiscoveryRequestV1 } from "../src/contracts/v1/index.js";
+import { resolveRipgrepExecutableV1 } from "../src/core/file-discovery.js";
 import { bindFileDiscoveryScopeV1, createFileDiscoveryServiceV1, DISCOVER_CANDIDATE_FILES_TOOL_NAME, loadFileDiscoveryOwnerV1 } from "../src/service.js";
+
+const RIPGREP_WARNING_SYMBOL_V1 = Symbol.for("@aefree/pi-file-discovery/ripgrep-warning/v1");
+const runtimeState = globalThis as Record<PropertyKey, unknown>;
+const RIPGREP_WARNING = "pi-file-discovery capability warning: ripgrep (rg) is unavailable or PI_FILE_DISCOVERY_RG_PATH is invalid. Install rg on PATH, or set PI_FILE_DISCOVERY_RG_PATH to an absolute rg executable path. Candidate-file discovery remains unavailable until corrected.";
+
+async function warnWhenRipgrepUnavailableV1(ctx: { readonly hasUI: boolean; readonly cwd: string; readonly ui: { notify(message: string, type?: "info" | "warning" | "error"): void } }): Promise<void> {
+  if (!ctx.hasUI || runtimeState[RIPGREP_WARNING_SYMBOL_V1] === true) return;
+  try { await resolveRipgrepExecutableV1(ctx.cwd); }
+  catch {
+    if (runtimeState[RIPGREP_WARNING_SYMBOL_V1] === true) return;
+    runtimeState[RIPGREP_WARNING_SYMBOL_V1] = true;
+    ctx.ui.notify(RIPGREP_WARNING, "warning");
+  }
+}
 
 /** Candidate-file research, deliberately not an alias for routine rg/read lookup. */
 export default function registerFileDiscovery(pi: ExtensionAPI): void {
   let token: ReturnType<ReturnType<typeof createFileDiscoveryServiceRegistryV1>["register"]> | undefined;
-  pi.on("session_start", async (_event, ctx) => { token = createFileDiscoveryServiceRegistryV1().register(ctx.sessionManager, await createFileDiscoveryServiceV1(await loadFileDiscoveryOwnerV1(import.meta.url))); });
+  pi.on("session_start", async (_event, ctx) => {
+    token = createFileDiscoveryServiceRegistryV1().register(ctx.sessionManager, await createFileDiscoveryServiceV1(await loadFileDiscoveryOwnerV1(import.meta.url)));
+    await warnWhenRipgrepUnavailableV1(ctx);
+  });
   pi.on("session_shutdown", () => { createFileDiscoveryServiceRegistryV1().unregister(token); token = undefined; });
   pi.registerTool({
     name: DISCOVER_CANDIDATE_FILES_TOOL_NAME,
