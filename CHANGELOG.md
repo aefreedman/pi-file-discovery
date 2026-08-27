@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.1.2] - 2026-08-27
+
 ### Changed
 
 - Warn once per Pi runtime in UI sessions when ripgrep cannot be resolved or `PI_FILE_DISCOVERY_RG_PATH` is invalid, with a privacy-safe recovery path.
