@@ -1,6 +1,6 @@
 {
   "name": "@aefree/pi-file-discovery",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Bounded candidate-file discovery for unfamiliar repository research.",
   "keywords": [
     "pi-package",
