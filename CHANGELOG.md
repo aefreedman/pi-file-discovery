@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Updated Pi development dependencies and validation baseline to 0.86.1.
+
 ## [0.1.2] - 2026-08-27
 
 ### Changed
