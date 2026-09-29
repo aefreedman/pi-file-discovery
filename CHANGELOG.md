@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Align development and deterministic validation with Pi 0.99.1.
+
 ## [0.1.4] - 2026-09-21
 
 ### Changed
