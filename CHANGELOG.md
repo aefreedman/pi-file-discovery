@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Pin TypeScript 7.0.2 and local tsx 4.23.15; align Node types with the runtime floor and explicitly include them for compilation.
+
 - Align development and deterministic validation with Pi 0.99.1.
 
 ## [0.1.4] - 2026-09-21
