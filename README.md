@@ -8,7 +8,7 @@ Requirements:
 
 - Node.js 22.19 or newer
 - [ripgrep](https://github.com/BurntSushi/ripgrep) available on `PATH`, or an absolute executable path in `PI_FILE_DISCOVERY_RG_PATH`
-- Pi 0.83 or newer
+- Latest stable Pi (currently 0.99.1); older Pi versions are not supported
 
 ```bash
 pi install npm:@aefree/pi-file-discovery
@@ -62,7 +62,7 @@ This tool is not a sandbox, permission system, or access-control boundary: an ag
 
 ## Contracts and packaging
 
-Import `@aefree/pi-file-discovery/contracts/v1` for `FileDiscoveryFilterV1` and `FileDiscoveryServiceV1`. Filters use the registry key `@aefree/pi-file-discovery/filters/v1`. Contract imports are side-effect free.
+Import `@aefree/pi-file-discovery/contracts/v1` for `FileDiscoveryFilterV1` and `FileDiscoveryServiceV1`. Filters use the registry key `@aefree/pi-file-discovery/filters/v1`. Contract imports are side-effect free. The package includes authored `src/` for the Pi TypeScript adapter and compiled `dist/` for Node contract consumers; source maps support debugging against that included source.
 
 ```bash
 npm test

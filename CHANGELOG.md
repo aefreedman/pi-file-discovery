@@ -2,9 +2,14 @@
 
 ## Unreleased
 
-- Pin TypeScript 7.0.2 and local tsx 4.23.15; align Node types with the runtime floor and explicitly include them for compilation.
+## [0.1.5] - 2026-09-29
 
-- Align development and deterministic validation with Pi 0.99.1.
+### Changed
+
+- Align development, deterministic validation, and supported-baseline documentation with latest stable Pi 0.99.1.
+- Pin TypeScript 7.0.2 and local tsx 4.23.15; align Node types with the runtime floor and explicitly include them for compilation.
+- Fail closed on npm registry errors and require matching version and commit identity before skipping an existing publication.
+- Document authored source and source maps as supported adapter and debugging resources.
 
 ## [0.1.4] - 2026-09-21
 
