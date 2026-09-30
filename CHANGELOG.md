@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Do not fail the trusted-publishing run on delayed npm visibility after successful publication; retain pre-publish identity validation.
+
 ## [0.1.5] - 2026-09-29
 
 ### Changed
