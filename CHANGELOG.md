@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Align package-local Pi validation dependencies with latest stable 1.1.0.
+
 ### Fixed
 
 - Do not fail the trusted-publishing run on delayed npm visibility after successful publication; retain pre-publish identity validation.

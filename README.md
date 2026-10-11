@@ -8,7 +8,7 @@ Requirements:
 
 - Node.js 22.19 or newer
 - [ripgrep](https://github.com/BurntSushi/ripgrep) available on `PATH`, or an absolute executable path in `PI_FILE_DISCOVERY_RG_PATH`
-- Latest stable Pi (currently 0.99.1); older Pi versions are not supported
+- Latest stable Pi (currently 1.1.0); older Pi versions are not supported
 
 ```bash
 pi install npm:@aefree/pi-file-discovery
