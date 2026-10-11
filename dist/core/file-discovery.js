@@ -3,6 +3,18 @@ import { access, realpath, stat } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import * as path from "node:path";
 import { assertFileDiscoveryExecutionContextV1, assertFileDiscoveryFilterResultV1, assertFileDiscoveryRequestV1 } from "../contracts/v1/index.js";
+/** Additive bounded observations for existing rejected execution paths. */
+export class RipgrepUnavailableErrorV1 extends Error {
+    constructor() { super("Ripgrep is unavailable; install rg on PATH or set PI_FILE_DISCOVERY_RG_PATH to an absolute executable path."); }
+}
+export class FileDiscoveryExecutionErrorV1 extends Error {
+    result;
+    constructor(result) {
+        super(result.failure === "cancelled" ? "File discovery cancelled." : "File discovery execution did not complete.");
+        this.result = result;
+        this.name = result.failure === "cancelled" ? "AbortError" : "FileDiscoveryExecutionError";
+    }
+}
 const DEFAULTS = Object.freeze({ maxMatches: 80, maxMatchesPerFile: 5, maxSnippetChars: 240, maxCandidates: 8, maxExcerptsPerCandidate: 2, timeoutSecondsPerSearch: 30 });
 const HARD = Object.freeze({ maxMatches: 100, maxMatchesPerFile: 20, maxSnippetChars: 300 });
 const MAX_STDERR_CHARS = 8_000;
@@ -76,7 +88,13 @@ export async function executeFileDiscoveryV1(context, request, providers) {
     abortIfNeeded(context.signal);
     const selectedScopeLexical = path.resolve(context.cwd);
     const selectedScopePhysical = await canonicalExisting(selectedScopeLexical, "discovery cwd");
-    const ripgrep = await resolveConfiguredRipgrepExecutableV1(process.env, selectedScopePhysical);
+    let ripgrep;
+    try {
+        ripgrep = await resolveConfiguredRipgrepExecutableV1(process.env, selectedScopePhysical);
+    }
+    catch {
+        throw new RipgrepUnavailableErrorV1();
+    }
     const requestedWorkspaceValue = stripLeadingAt(request.workspaceRoot ?? selectedScopeLexical);
     const workspaceRoot = await canonicalExisting(path.resolve(selectedScopeLexical, requestedWorkspaceValue), "workspaceRoot");
     if (!isPathWithin(selectedScopePhysical, workspaceRoot))
@@ -142,18 +160,34 @@ export async function executeFileDiscoveryV1(context, request, providers) {
     let remaining = maxMatches;
     const totalCells = queries.length * effectiveRoots.length;
     let nextCell = 0;
+    let failure;
     for (const query of queries)
         for (const root of effectiveRoots) {
-            abortIfNeeded(context.signal);
-            const cellsLeft = totalCells - nextCell++;
-            if (!remaining) {
-                cells.push(emptyCell(query.id, root, "not_run_global_limit"));
+            if (failure) {
+                cells.push(emptyCell(query.id, root, "not_run_failure"));
                 continue;
             }
-            const allowance = Math.max(1, Math.min(remaining, Math.ceil(remaining / cellsLeft)));
-            const cell = await runRipgrepCellV1({ executable: ripgrep.executable, env: ripgrep.env, cwd: workspaceRoot, root, query, globs, includeHidden: Boolean(request.includeHidden), maxMatches: allowance, maxMatchesPerFile: maxPerFile, maxSnippetChars, timeoutMs, signal: context.signal });
-            cells.push(cell);
-            remaining -= cell.matches.length;
+            if (context.signal.aborted) {
+                failure = "cancelled";
+                cells.push(emptyCell(query.id, root, "not_run_failure"));
+                continue;
+            }
+            const cellsLeft = totalCells - nextCell++;
+            try {
+                abortIfNeeded(context.signal);
+                if (!remaining) {
+                    cells.push(emptyCell(query.id, root, "not_run_global_limit"));
+                    continue;
+                }
+                const allowance = Math.max(1, Math.min(remaining, Math.ceil(remaining / cellsLeft)));
+                const cell = await runRipgrepCellV1({ executable: ripgrep.executable, env: ripgrep.env, cwd: workspaceRoot, root, query, globs, includeHidden: Boolean(request.includeHidden), maxMatches: allowance, maxMatchesPerFile: maxPerFile, maxSnippetChars, timeoutMs, signal: context.signal });
+                cells.push(cell);
+                remaining -= cell.matches.length;
+            }
+            catch (error) {
+                failure = isAbort(error) ? "cancelled" : "launch_failed";
+                cells.push(emptyCell(query.id, root, failure === "cancelled" ? "cancelled" : "error"));
+            }
         }
     for (const diagnostic of rootDiagnostics)
         for (const query of queries)
@@ -173,7 +207,10 @@ export async function executeFileDiscoveryV1(context, request, providers) {
         retrySuggestions.push("Correct the regex pattern or use mode: 'literal'.");
     if (!candidates.length && coverage.negativeEvidenceCellCount === 0)
         retrySuggestions.push("No completed absence claim is available; resolve incomplete cells first.");
-    return Object.freeze({ workspaceRoot, requestedRoots: Object.freeze(requestedRoots), rootDiagnostics: Object.freeze(rootDiagnostics), queries, roots: effectiveRoots, cells: Object.freeze(cells), candidates, coverage, completeness, filters: Object.freeze({ mode: request.filterMode ?? "recommended", filteringDegraded: degraded.length > 0, explicitRootOverride: effectiveRoots.some((root) => root.filterBypassed), decisions: filterDecisions, nativeIgnore: true, followsSymlinks: false, binaryFiles: "skipped", requested: { maxMatches: request.maxMatches, maxMatchesPerFile: request.maxMatchesPerFile, maxSnippetChars: request.maxSnippetChars }, effective: { maxMatches, maxMatchesPerFile: maxPerFile, maxSnippetChars } }), providerOutcomes: Object.freeze(providerOutcomes), filterDecisions, retrySuggestions: Object.freeze(retrySuggestions), outputMode: request.outputMode ?? "compact" });
+    const result = Object.freeze({ ...(failure === undefined ? {} : { failure }), workspaceRoot, requestedRoots: Object.freeze(requestedRoots), rootDiagnostics: Object.freeze(rootDiagnostics), queries, roots: effectiveRoots, cells: Object.freeze(cells), candidates, coverage, completeness, filters: Object.freeze({ mode: request.filterMode ?? "recommended", globs: Object.freeze([...globs]), includeHidden: Boolean(request.includeHidden), filteringDegraded: degraded.length > 0, explicitRootOverride: effectiveRoots.some((root) => root.filterBypassed), decisions: filterDecisions, nativeIgnore: true, followsSymlinks: false, binaryFiles: "skipped", requested: { maxMatches: request.maxMatches, maxMatchesPerFile: request.maxMatchesPerFile, maxSnippetChars: request.maxSnippetChars }, effective: { maxMatches, maxMatchesPerFile: maxPerFile, maxSnippetChars } }), providerOutcomes: Object.freeze(providerOutcomes), filterDecisions, retrySuggestions: Object.freeze(retrySuggestions), outputMode: request.outputMode ?? "compact" });
+    if (failure)
+        throw new FileDiscoveryExecutionErrorV1(result);
+    return result;
 }
 function normalizeQueries(values) { const ids = new Set(); return values.map((query, index) => { const pattern = query.pattern; if (!pattern.trim() || /[\0\r\n]/.test(pattern))
     throw new Error(`queries[${index}].pattern must be non-empty and contain no newline/NUL`); const id = (query.id?.trim() || `q${index + 1}`).replace(/[^A-Za-z0-9_.-]+/g, "-"); if (!id || ids.has(id))
@@ -200,7 +237,7 @@ function synthesizeCandidates(cells, maxCandidates, excerptsPerCandidate) { cons
     } return Object.freeze([...records.entries()].map(([candidatePath, item]) => { const queries = [...item.queries].sort(); const roots = [...item.roots].sort(); const matchCount = item.matches.length; const score = queries.length * 1000 + roots.length * 100 + Math.min(matchCount, 99); return Object.freeze({ path: candidatePath, queryIds: Object.freeze(queries), roots: Object.freeze(roots), matchCount, score, excerpts: Object.freeze(item.matches.sort(compareMatch).slice(0, excerptsPerCandidate)) }); }).sort((a, b) => b.score - a.score || a.path.localeCompare(b.path)).slice(0, Math.min(maxCandidates, 20))); }
 function compareMatch(a, b) { return a.path.localeCompare(b.path) || a.line - b.line || (a.column ?? 0) - (b.column ?? 0); }
 /** Summarize which cells ran and whether their evidence is complete. */
-export function summarizeFileDiscoveryCompletenessV1(cells) { const complete = cells.filter((cell) => cell.status === "matched" || cell.status === "no_matches"); const coverage = Object.freeze({ ranCellCount: cells.filter((cell) => cell.status !== "not_run_global_limit" && cell.status !== "root_unavailable").length, completeCellCount: complete.length, incompleteCellCount: cells.length - complete.length, negativeEvidenceCellCount: cells.filter((cell) => cell.status === "no_matches").length }); return Object.freeze({ coverage, completeness: coverage.ranCellCount === 0 ? "blocked" : coverage.incompleteCellCount ? "partial" : "complete" }); }
+export function summarizeFileDiscoveryCompletenessV1(cells) { const complete = cells.filter((cell) => cell.status === "matched" || cell.status === "no_matches"); const coverage = Object.freeze({ ranCellCount: cells.filter((cell) => cell.status !== "not_run_global_limit" && cell.status !== "root_unavailable" && cell.status !== "not_run_failure").length, completeCellCount: complete.length, incompleteCellCount: cells.length - complete.length, negativeEvidenceCellCount: cells.filter((cell) => cell.status === "no_matches").length }); return Object.freeze({ coverage, completeness: coverage.ranCellCount === 0 ? "blocked" : coverage.incompleteCellCount ? "partial" : "complete" }); }
 function emptyCell(queryId, root, status) { return Object.freeze({ queryId, root: root.path, status, matches: Object.freeze([]), appliedIgnoreFiles: root.ignoreFiles, filterExclusions: root.exclusions, filterDecision: root.filterDecision, disclosures: root.disclosures }); }
 function unavailableRootCell(queryId, diagnostic) { return Object.freeze({ queryId, root: diagnostic.path, status: "root_unavailable", matches: Object.freeze([]), appliedIgnoreFiles: Object.freeze([]), filterExclusions: Object.freeze([]), filterDecision: "skipped", disclosures: Object.freeze([diagnostic.message]), stderr: diagnostic.message }); }
 function clamp(value, min, max, fallback) { return Math.min(max, Math.max(min, value ?? fallback)); }
@@ -259,7 +296,7 @@ function abortIfNeeded(signal) { if (signal.aborted)
     throw abortError(); }
 function abortError() { const error = new Error("File discovery cancelled."); error.name = "AbortError"; return error; }
 function isAbort(error) { return error instanceof Error && error.name === "AbortError"; }
-function truncate(value, max) { const line = value.replace(/\r?\n/g, " ").trim(); return line.length <= max ? line : `${line.slice(0, Math.max(0, max - 1))}…`; }
+function truncate(value, max) { const line = value.replace(/\r?\n/g, " ").trim(); return line.length <= max ? line : `${line.slice(0, Math.max(0, max - 1)).replace(/[\uD800-\uDBFF]$/, "")}…`; }
 function classify(stderr) { return /regex parse error|invalid regex|error parsing regex/i.test(stderr) ? "invalid_regex" : "error"; }
 async function runRipgrepCellV1(input) { const args = buildRipgrepArgs({ root: input.root.path, query: input.query, globs: input.globs, ignoreFiles: input.root.ignoreFiles, exclusions: input.root.exclusions, includeHidden: input.includeHidden, maxMatchesPerFile: input.maxMatchesPerFile }); return await new Promise((resolve, reject) => { let child; try {
     child = spawn(input.executable, args, { cwd: input.cwd, env: input.env, shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -267,34 +304,53 @@ async function runRipgrepCellV1(input) { const args = buildRipgrepArgs({ root: i
 catch (error) {
     reject(error);
     return;
-} const matches = []; let pending = "", stderr = "", limited = false, timedOut = false, aborted = false, settled = false; const kill = () => { if (!child.killed)
+} const matches = []; const fileMatchCounts = new Map(); let perFileLimited = false; let pending = "", stderr = "", limited = false, timedOut = false, aborted = false, settled = false, malformedOutput = false; const kill = () => { if (!child.killed)
     child.kill(); }; const timer = setTimeout(() => { timedOut = true; kill(); }, input.timeoutMs); const onAbort = () => { aborted = true; kill(); }; input.signal.addEventListener("abort", onAbort, { once: true }); const clean = () => { clearTimeout(timer); input.signal.removeEventListener("abort", onAbort); }; const consume = (line) => { if (!line.trim() || limited)
     return; try {
     const event = JSON.parse(line);
-    if (event?.type !== "match")
+    if (event?.type !== "match") {
+        if (!["begin", "end", "summary", "context"].includes(event?.type))
+            malformedOutput = true;
         return;
+    }
     const raw = event.data?.path?.text, lineNumber = event.data?.line_number, text = event.data?.lines?.text;
-    if (typeof raw !== "string" || typeof lineNumber !== "number" || typeof text !== "string")
+    if (typeof raw !== "string" || !Number.isInteger(lineNumber) || lineNumber < 1 || typeof text !== "string") {
+        malformedOutput = true;
         return;
+    }
     const absolute = path.isAbsolute(raw) ? raw : path.resolve(input.cwd, raw);
+    if (!isPathWithin(input.root.path, absolute)) {
+        malformedOutput = true;
+        return;
+    }
     const submatch = event.data?.submatches?.[0];
-    matches.push(Object.freeze({ path: displayPathFromRoot(input.cwd, absolute), line: lineNumber, ...(typeof submatch?.start === "number" ? { column: submatch.start + 1 } : {}), text: truncate(text, input.maxSnippetChars) }));
+    matches.push(Object.freeze({ path: displayPathFromRoot(input.cwd, absolute), line: lineNumber, ...(typeof submatch?.start === "number" ? { column: submatch.start + 1 } : {}), text: truncate(text, input.maxSnippetChars), textTruncated: text.replace(/\r?\n/g, " ").trim().length > input.maxSnippetChars }));
+    const fileCount = (fileMatchCounts.get(absolute) ?? 0) + 1;
+    fileMatchCounts.set(absolute, fileCount);
+    if (fileCount >= input.maxMatchesPerFile)
+        perFileLimited = true;
     if (matches.length >= input.maxMatches) {
         limited = true;
         kill();
     }
 }
-catch { /* malformed JSON is bounded process noise */ } }; child.stdout.setEncoding("utf8"); child.stdout.on("data", (chunk) => { pending += chunk; if (pending.length > MAX_PENDING_JSON_CHARS && !pending.includes("\n")) {
+catch {
+    malformedOutput = true;
+} }; child.stdout.setEncoding("utf8"); child.stdout.on("data", (chunk) => { pending += chunk; if (pending.length > MAX_PENDING_JSON_CHARS && !pending.includes("\n")) {
     stderr = "ripgrep emitted oversized JSON";
+    malformedOutput = true;
     kill();
     return;
 } const lines = pending.split(/\r?\n/); pending = lines.pop() ?? ""; lines.forEach(consume); }); child.stderr.setEncoding("utf8"); child.stderr.on("data", (chunk) => { if (stderr.length < MAX_STDERR_CHARS)
-    stderr += chunk.slice(0, MAX_STDERR_CHARS - stderr.length); }); child.on("error", reject); child.on("close", (exitCode) => { if (settled)
+    stderr += chunk.slice(0, MAX_STDERR_CHARS - stderr.length); }); child.on("error", (error) => { if (settled)
+    return; settled = true; clean(); reject(error); }); child.on("close", (exitCode) => { if (settled)
     return; settled = true; clean(); if (pending)
     consume(pending); if (aborted)
-    return reject(abortError()); const status = timedOut ? "timeout" : limited ? "partial_limit" : exitCode === 0 ? (matches.length ? "matched" : "no_matches") : exitCode === 1 ? "no_matches" : classify(stderr); resolve(Object.freeze({ queryId: input.query.id, root: input.root.path, status, matches: Object.freeze(matches), appliedIgnoreFiles: input.root.ignoreFiles, filterExclusions: input.root.exclusions, filterDecision: input.root.filterDecision, disclosures: input.root.disclosures, ...(stderr.trim() ? { stderr: stderr.trim() } : {}), exitCode })); }); }); }
+    return reject(abortError()); const status = timedOut ? "timeout" : malformedOutput ? "error" : (limited || perFileLimited) ? "partial_limit" : exitCode === 0 ? (matches.length ? "matched" : "no_matches") : exitCode === 1 ? (matches.length ? "error" : "no_matches") : classify(stderr); resolve(Object.freeze({ queryId: input.query.id, root: input.root.path, status, matches: Object.freeze(matches), appliedIgnoreFiles: input.root.ignoreFiles, filterExclusions: input.root.exclusions, filterDecision: input.root.filterDecision, disclosures: input.root.disclosures, ...(stderr.trim() ? { stderr: stderr.trim() } : {}), exitCode })); }); }); }
 /** Compact reports prioritize ranked candidates; detailed mode adds bounded cell diagnostics. */
-export function formatFileDiscoveryReportV1(result) { const lines = ["# Candidate File Discovery", `- Workspace: ${result.workspaceRoot}`, `- Roots: ${result.requestedRoots.map((root) => displayPathFromRoot(result.workspaceRoot, root)).join(", ") || "(none available)"}`, `- Status: ${result.completeness} (${result.coverage.completeCellCount}/${result.cells.length} complete cells)`, `- Query modes: ${result.queries.map((query) => `${query.id}=${query.mode}`).join(", ")}`]; const filters = result.filters; const filterDecisions = filters.decisions ?? result.filterDecisions; if (filters.filteringDegraded || filters.mode === "native-only" || filters.explicitRootOverride || filters.registrationDegradation || filterDecisions.some((entry) => entry.decision !== "skipped")) {
+export function formatFileDiscoveryReportV1(result) { return formatFileDiscoveryReportObservationV1(result).text; }
+/** Same presentation, with producer-owned truncation observation. */
+export function formatFileDiscoveryReportObservationV1(result) { const lines = ["# Candidate File Discovery", `- Workspace: ${result.workspaceRoot}`, `- Roots: ${result.requestedRoots.map((root) => displayPathFromRoot(result.workspaceRoot, root)).join(", ") || "(none available)"}`, `- Status: ${result.completeness} (${result.coverage.completeCellCount}/${result.cells.length} complete cells)`, `- Query modes: ${result.queries.map((query) => `${query.id}=${query.mode}`).join(", ")}`]; const filters = result.filters; const filterDecisions = filters.decisions ?? result.filterDecisions; if (filters.filteringDegraded || filters.mode === "native-only" || filters.explicitRootOverride || filters.registrationDegradation || filterDecisions.some((entry) => entry.decision !== "skipped")) {
     const summary = filterDecisions.filter((entry) => entry.scope === "root" && entry.decision !== "skipped").map((entry) => `${entry.target}: ${entry.decision}`).join(", ");
     lines.push(`- Filtering: ${filters.mode}${filters.filteringDegraded ? "; degraded provider filtering" : ""}${filters.registrationDegradation ? "; degraded filter registration" : ""}${summary ? `; ${summary}` : ""}`);
     for (const entry of filterDecisions.filter((item) => item.scope === "root" && item.disclosures.length))
@@ -316,5 +372,5 @@ else if (result.coverage.negativeEvidenceCellCount)
     lines.push("", ...result.retrySuggestions.map((suggestion) => `Retry: ${suggestion}`)); if (result.outputMode === "detailed") {
     lines.push("", "## Bounded status matrix", ...result.cells.map((cell) => `- ${cell.queryId} / ${displayPathFromRoot(result.workspaceRoot, cell.root)}: ${cell.status} (${cell.matches.length} matches)`));
 } const output = lines.join("\n"); if (output.length <= 8_000)
-    return output; const suffix = "\n[Compact report truncated at 8,000 characters; use narrower roots.]"; return `${output.slice(0, 8_000 - suffix.length)}${suffix}`; }
+    return { text: output, truncated: false }; const suffix = "\n[Compact report truncated at 8,000 characters; use narrower roots.]"; return { text: `${output.slice(0, 8_000 - suffix.length)}${suffix}`, truncated: true }; }
 //# sourceMappingURL=file-discovery.js.map

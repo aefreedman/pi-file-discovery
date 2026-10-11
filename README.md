@@ -68,3 +68,7 @@ Import `@aefree/pi-file-discovery/contracts/v1` for `FileDiscoveryFilterV1` and 
 npm test
 npm pack --dry-run
 ```
+
+## Native result contract
+
+`discover_candidate_files` declares a closed [version-1 native contract](src/contracts/v1/OUTPUT.md) and validates its structured result from the canonical search, independently of the useful bounded report. Codemode receives this DTO directly; check `ok`. Structured failures also retain native `isError:true`; host validation, blocking or no-DTO exceptions can reject. Search coverage, candidate/excerpt omissions and presentation clipping are separate. Only completed `no_matches` cells establish scoped absence. The contract reference lists exact bounds and optional selective-consumption guidance.

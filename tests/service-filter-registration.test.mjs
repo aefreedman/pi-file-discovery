@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { createCapabilityRegistry } from "@aefree/pi-capability-registry";
-import { createFileDiscoveryFilterRegistryV1, FILE_DISCOVERY_FILTER_REGISTRY_KEY_V1 } from "../dist/contracts/v1/index.js";
+import { projectDiscoverCandidateFilesOutputV1, createFileDiscoveryFilterRegistryV1, FILE_DISCOVERY_FILTER_REGISTRY_KEY_V1 } from "../dist/contracts/v1/index.js";
 import { bindFileDiscoveryScopeV1, createFileDiscoveryServiceV1 } from "../dist/service.js";
 
 test("incompatible optional filter registration degrades to native discovery", async () => {
@@ -19,7 +19,9 @@ test("incompatible optional filter registration degrades to native discovery", a
     assert.equal(result.details.completeness, "complete"); assert.equal("executionGate" in result.details, false); assert.equal("executionGate" in result.provenance, false);
     assert.equal(result.details.filters.registrationDegradation.outcome, "incompatible"); assert.equal(result.details.filterDecisions.find((entry) => entry.target === "filter registration")?.decision, "degraded"); assert.match(result.text, /degraded filter registration/);
     assert.deepEqual(result.provenance.fallbacks, [{ code: "incompatible_contract", action: "degraded", summary: "Optional filter registration is incompatible; native discovery continued." }]);
+    const native = projectDiscoverCandidateFilesOutputV1(result); assert.equal(native.ok, true); assert.equal(native.observation.filters.filteringDegraded, true); assert.equal(native.observation.filters.registrationDegradation.outcome, "incompatible");
     incompatible.unregister(token);
+    assert.equal(native.observation.provenance.canonical.serviceId, "file-discovery.ripgrep");
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -33,5 +35,6 @@ test("duplicate optional filter registration degrades to native discovery", asyn
     const context = bindFileDiscoveryScopeV1(Object.freeze({ cwd: root, signal: new AbortController().signal }), scope);
     const result = await (await createFileDiscoveryServiceV1()).search(context, { queries: [{ pattern: "Needle", mode: "literal" }] });
     assert.equal(result.details.completeness, "complete"); assert.equal("executionGate" in result.details, false); assert.equal("executionGate" in result.provenance, false); assert.equal(result.details.filters.registrationDegradation.outcome, "duplicate"); assert.equal(result.details.filterDecisions.find((entry) => entry.target === "filter registration")?.decision, "degraded"); assert.match(result.text, /degraded filter registration/);
+    const native = projectDiscoverCandidateFilesOutputV1(result); assert.equal(native.ok, true); assert.equal(native.observation.filters.registrationDegradation.outcome, "duplicate");
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

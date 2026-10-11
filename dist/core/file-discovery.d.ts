@@ -1,11 +1,12 @@
 import * as path from "node:path";
 import type { FileDiscoveryExecutionContextV1, FileDiscoveryFilterDecisionV1, FileDiscoveryFilterV1, FileDiscoveryRequestV1 } from "../contracts/v1/index.js";
-export type FileDiscoveryCellStatusV1 = "matched" | "no_matches" | "partial_limit" | "invalid_regex" | "timeout" | "error" | "not_run_global_limit" | "root_unavailable";
+export type FileDiscoveryCellStatusV1 = "matched" | "no_matches" | "partial_limit" | "invalid_regex" | "timeout" | "error" | "not_run_global_limit" | "root_unavailable" | "cancelled" | "not_run_failure";
 export interface FileDiscoveryMatchV1 {
     readonly path: string;
     readonly line: number;
     readonly column?: number;
     readonly text: string;
+    readonly textTruncated?: boolean;
 }
 export interface FileDiscoveryCellV1 {
     readonly queryId: string;
@@ -66,6 +67,7 @@ export interface FileDiscoveryRootDiagnosticV1 {
     readonly message: string;
 }
 export interface CoreFileDiscoveryResultV1 {
+    readonly failure?: "cancelled" | "launch_failed";
     readonly workspaceRoot: string;
     readonly requestedRoots: readonly string[];
     readonly rootDiagnostics: readonly FileDiscoveryRootDiagnosticV1[];
@@ -87,6 +89,14 @@ export type NormalizedQueryV1 = Readonly<{
     mode: "literal" | "regex";
     caseSensitive?: boolean;
 }>;
+/** Additive bounded observations for existing rejected execution paths. */
+export declare class RipgrepUnavailableErrorV1 extends Error {
+    constructor();
+}
+export declare class FileDiscoveryExecutionErrorV1 extends Error {
+    readonly result: CoreFileDiscoveryResultV1;
+    constructor(result: CoreFileDiscoveryResultV1);
+}
 export type ResolvedRipgrepExecutableV1 = Readonly<{
     executable: string;
     env: NodeJS.ProcessEnv;
@@ -115,4 +125,9 @@ export declare function summarizeFileDiscoveryCompletenessV1(cells: readonly Fil
 }>;
 /** Compact reports prioritize ranked candidates; detailed mode adds bounded cell diagnostics. */
 export declare function formatFileDiscoveryReportV1(result: CoreFileDiscoveryResultV1): string;
+/** Same presentation, with producer-owned truncation observation. */
+export declare function formatFileDiscoveryReportObservationV1(result: CoreFileDiscoveryResultV1): Readonly<{
+    text: string;
+    truncated: boolean;
+}>;
 //# sourceMappingURL=file-discovery.d.ts.map

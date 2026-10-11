@@ -5,9 +5,17 @@
 ### Changed
 
 - Align package-local Pi validation dependencies with latest stable 1.1.0.
+- Declare the existing TypeBox schema library as a production dependency for standalone contract/core/service imports; Pi runtime peers remain optional.
+
+### Added
+
+- Closed, versioned native output for `discover_candidate_files`, with exact admitted references, a full scoped diagnostic matrix, bounded candidates/excerpts, filtering provenance, independent omissions/truncation and UTF-8 response budgets.
+- Offline scripted-process/adapter regressions and actual Pi 1.1.0 host validation for direct, codemode and nested consumers, errors, hooks and transcript boundaries.
 
 ### Fixed
 
+- Preserve launch/cancellation observations without dispatching subsequent cells or replaying searches; reject malformed capture as incomplete rather than scoped absence.
+- Disclose possible per-file match-cap truncation and avoid splitting Unicode surrogate pairs in clipped snippets.
 - Do not fail the trusted-publishing run on delayed npm visibility after successful publication; retain pre-publish identity validation.
 
 ## [0.1.5] - 2026-09-29

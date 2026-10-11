@@ -53,7 +53,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepack": "npm run build",
-    "test": "npm run build && node --test tests/*.test.mjs && tsx tests/extension-registration.test.ts && tsx tests/extension-composition.test.ts",
+    "test": "npm run build && node --test tests/*.test.mjs && tsx tests/extension-registration.test.ts && tsx tests/extension-composition.test.ts && tsx tests/discovery-adapter.test.ts && tsx tests/pi-host.test.ts",
     "eval:using-file-discovery": "node --experimental-strip-types evals/using-file-discovery/run-eval.ts",
     "pack:check": "npm pack --dry-run"
   },
@@ -61,22 +61,19 @@
     "node": ">=22.19.0"
   },
   "dependencies": {
-    "@aefree/pi-capability-registry": "^0.1.0"
+    "@aefree/pi-capability-registry": "^0.1.0",
+    "typebox": "^1.3.8"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*",
-    "typebox": "*"
+    "@earendil-works/pi-tui": "*"
   },
   "peerDependenciesMeta": {
     "@earendil-works/pi-ai": {
       "optional": true
     },
     "@earendil-works/pi-coding-agent": {
-      "optional": true
-    },
-    "typebox": {
       "optional": true
     },
     "@earendil-works/pi-tui": {
@@ -89,7 +86,6 @@
     "@earendil-works/pi-tui": "1.1.0",
     "@types/node": "22.20.4",
     "tsx": "4.23.15",
-    "typebox": "^1.3.8",
     "typescript": "7.0.2"
   },
   "repository": {

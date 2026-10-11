@@ -1,11 +1,11 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead } from "@earendil-works/pi-coding-agent";
+import { DEFAULT_MAX_LINES, truncateHead } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { createFileDiscoveryServiceRegistryV1, type FileDiscoveryRequestV1 } from "../src/contracts/v1/index.js";
-import { resolveRipgrepExecutableV1 } from "../src/core/file-discovery.js";
-import { bindFileDiscoveryScopeV1, createFileDiscoveryServiceV1, DISCOVER_CANDIDATE_FILES_TOOL_NAME, loadFileDiscoveryOwnerV1 } from "../src/service.js";
+import { assertFileDiscoveryRequestV1, DiscoverCandidateFilesOutputSchemaV1, DISCOVERY_OUTPUT_LIMITS_V1, discoveryFailureV1, jsonUTF8BytesV1, projectDiscoverCandidateFilesOutputV1, createFileDiscoveryServiceRegistryV1, type FileDiscoveryRequestV1 } from "../src/contracts/v1/index.js";
+import { resolveRipgrepExecutableV1, RipgrepUnavailableErrorV1 } from "../src/core/file-discovery.js";
+import { bindFileDiscoveryScopeV1, FileDiscoveryServiceErrorV1, createFileDiscoveryServiceV1, DISCOVER_CANDIDATE_FILES_TOOL_NAME, loadFileDiscoveryOwnerV1 } from "../src/service.js";
 
 const RIPGREP_WARNING_SYMBOL_V1 = Symbol.for("@aefree/pi-file-discovery/ripgrep-warning/v1");
 const runtimeState = globalThis as Record<PropertyKey, unknown>;
@@ -41,13 +41,39 @@ export default function registerFileDiscovery(pi: ExtensionAPI): void {
       "Exact roots inside generated/cache locations are intentional and are searched; broad research uses recommended filters by default.",
       "Physical selected-scope containment, deterministic executable selection, cancellation, and process/output bounds prevent accidental broad discovery, nondeterministic matching, process mistakes, and context waste; they do not control agent access.",
     ],
+    outputSchema: DiscoverCandidateFilesOutputSchemaV1,
     parameters: Type.Object({
       queries: Type.Array(Type.Object({ id: Type.Optional(Type.String({ maxLength: 80 })), pattern: Type.String({ maxLength: 2000 }), mode: StringEnum(["literal", "regex"] as const), caseSensitive: Type.Optional(Type.Boolean()) }), { minItems: 1, maxItems: 8 }),
       workspaceRoot: Type.Optional(Type.String()), roots: Type.Optional(Type.Array(Type.String(), { minItems: 1, maxItems: 10 })), globs: Type.Optional(Type.Array(Type.String({ maxLength: 300 }), { maxItems: 20 })), includeHidden: Type.Optional(Type.Boolean()), filterMode: Type.Optional(StringEnum(["recommended", "native-only"] as const)),
       maxCandidates: Type.Optional(Type.Integer({ minimum: 1, maximum: 20 })), maxExcerptsPerCandidate: Type.Optional(Type.Integer({ minimum: 1, maximum: 5 })), outputMode: Type.Optional(StringEnum(["compact", "detailed"] as const)),
       maxMatches: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000 })), maxMatchesPerFile: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000 })), maxSnippetChars: Type.Optional(Type.Integer({ minimum: 80, maximum: 4000 })), timeoutSecondsPerSearch: Type.Optional(Type.Integer({ minimum: 1, maximum: 120 })),
     }),
-    async execute(_toolCallId, params, signal, _onUpdate, ctx) { const service = createFileDiscoveryServiceRegistryV1().snapshotCompatible(ctx.sessionManager)[0]; if (!service) throw new Error("discover_candidate_files service is unavailable for this session; restart or reload Pi."); const result = await service.search(bindFileDiscoveryScopeV1(Object.freeze({ cwd: ctx.cwd, signal: signal ?? new AbortController().signal }), ctx.sessionManager), params as FileDiscoveryRequestV1); const truncation = truncateHead(result.text, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES }); return { content: [{ type: "text", text: truncation.content }], details: { ...result.details, truncated: truncation.truncated, provenance: result.provenance } }; },
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+      const failure = (code: Parameters<typeof discoveryFailureV1>[0]) => {
+        const structuredContent = discoveryFailureV1(code);
+        return { content: [{ type: "text" as const, text: structuredContent.error.message }], details: { completeness: "blocked", truncated: false }, isError: true, structuredContent };
+      };
+      try { assertFileDiscoveryRequestV1(params); } catch { return failure("validation_failed"); }
+      const service = createFileDiscoveryServiceRegistryV1().snapshotCompatible(ctx.sessionManager)[0];
+      if (!service) return failure("service_unavailable");
+      let result;
+      try {
+        result = await service.search(bindFileDiscoveryScopeV1(Object.freeze({ cwd: ctx.cwd, signal: signal ?? new AbortController().signal }), ctx.sessionManager), params as FileDiscoveryRequestV1);
+      } catch (error) {
+        if (error instanceof FileDiscoveryServiceErrorV1) result = error.result;
+        else if (error instanceof RipgrepUnavailableErrorV1) return failure("ripgrep_unavailable");
+        else return failure(error instanceof Error && error.name === "AbortError" ? "cancelled" : "execution_failed");
+      }
+      const marker = "\n[Discovery presentation truncated; native coverage is separate.]";
+      const truncation = truncateHead(result.text, { maxLines: DEFAULT_MAX_LINES, maxBytes: DISCOVERY_OUTPUT_LIMITS_V1.presentationBytes - Buffer.byteLength(marker, "utf8") });
+      const presentation = truncation.truncated ? truncation.content + marker : truncation.content;
+      const structuredContent = projectDiscoverCandidateFilesOutputV1(result, truncation.truncated);
+      if (!structuredContent.ok && structuredContent.error.code === "output_contract_error") return failure("output_contract_error");
+      const output = { content: [{ type: "text" as const, text: presentation }], details: { ...result.details, truncated: truncation.truncated || result.reportTruncated === true, provenance: result.provenance }, isError: !structuredContent.ok, structuredContent };
+      try { if (jsonUTF8BytesV1(output) > DISCOVERY_OUTPUT_LIMITS_V1.responseBytes) return failure("response_overflow"); }
+      catch { return failure("output_contract_error"); }
+      return output;
+    },
     renderResult(result, { expanded, isPartial }, theme) {
       if (isPartial) return new Text(theme.fg("warning", "Searching candidate files…"), 0, 0);
       const output = result.content.filter((item) => item.type === "text").map((item) => item.text).join("\n");

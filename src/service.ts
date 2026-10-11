@@ -2,7 +2,11 @@ import { readFile, realpath } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
 import { createFileDiscoveryFilterRegistryV1, freezeFileDiscoveryResultV1, resolveFileDiscoveryFiltersV1, type FileDiscoveryExecutionContextV1, type FileDiscoveryOwnerV1, type FileDiscoveryRequestV1, type FileDiscoveryResultV1, type FileDiscoveryServiceV1 } from "./contracts/v1/index.js";
-import { executeFileDiscoveryV1, formatFileDiscoveryReportV1 } from "./core/file-discovery.js";
+import { executeFileDiscoveryV1, FileDiscoveryExecutionErrorV1, formatFileDiscoveryReportObservationV1, type CoreFileDiscoveryResultV1 } from "./core/file-discovery.js";
+
+export class FileDiscoveryServiceErrorV1 extends Error {
+  constructor(readonly result: FileDiscoveryResultV1) { super(result.native?.failure === "cancelled" ? "File discovery cancelled." : "Discovery execution failed with bounded observations."); this.name = result.native?.failure === "cancelled" ? "AbortError" : "FileDiscoveryServiceError"; }
+}
 
 export const DISCOVER_CANDIDATE_FILES_TOOL_NAME = "discover_candidate_files" as const;
 export const FILE_DISCOVERY_SERVICE_ID = "file-discovery.ripgrep" as const;
@@ -18,14 +22,19 @@ export async function createFileDiscoveryServiceV1(owner?: FileDiscoveryOwnerV1)
     async search(context: FileDiscoveryExecutionContextV1, request: FileDiscoveryRequestV1): Promise<FileDiscoveryResultV1> {
       const binding = boundInvocation(context); if (!binding) throw new Error("File discovery execution context is not bound to the current Pi session."); const resolved = resolveFileDiscoveryFiltersV1(binding.scope, createFileDiscoveryFilterRegistryV1());
       const filters = resolved.outcome === "available" ? resolved.records : [];
-      const core = await executeFileDiscoveryV1(Object.freeze({ ...context, cwd: binding.cwd }), request, filters);
+      let core: CoreFileDiscoveryResultV1;
+      try { core = await executeFileDiscoveryV1(Object.freeze({ ...context, cwd: binding.cwd }), request, filters); }
+      catch (error) { if (!(error instanceof FileDiscoveryExecutionErrorV1)) throw error; core = error.result; }
       const registrationDegradation = resolved.outcome === "incompatible" || resolved.outcome === "duplicate" ? Object.freeze({ outcome: resolved.outcome, code: resolved.code, providerIds: resolved.providerIds }) : undefined;
       const reportedFilterDecisions = registrationDegradation === undefined ? core.filterDecisions : Object.freeze([...core.filterDecisions, Object.freeze({ scope: "provider" as const, decision: "degraded" as const, target: "filter registration", code: registrationDegradation.code, disclosures: Object.freeze([]) })]);
       const reportedCore = registrationDegradation === undefined ? core : Object.freeze({ ...core, filterDecisions: reportedFilterDecisions, filters: Object.freeze({ ...core.filters, filteringDegraded: true, registrationDegradation, decisions: reportedFilterDecisions }) });
       const providers = core.providerOutcomes.map((outcome) => { const filter = filters.find((entry) => entry.id === outcome.providerId); return Object.freeze({ providerId: outcome.providerId, packageName: filter?.owner.packageName ?? "unknown", packageVersion: filter?.owner.packageVersion ?? "unknown", contractVersion: 1 as const, decision: outcome.decision }); });
       const degraded = core.providerOutcomes.filter((entry) => entry.decision === "degraded");
       const fallbacks = resolved.outcome === "missing" ? [{ code: resolved.code, action: "not_needed" as const, summary: "No optional file-discovery filters were registered; native ignore behavior was used." }] : registrationDegradation ? [{ code: registrationDegradation.code, action: "degraded" as const, summary: `Optional filter registration is ${registrationDegradation.outcome}; native discovery continued.` }] : degraded.map((entry) => ({ code: entry.code ?? "filter_error", action: "degraded" as const, summary: `Optional filter '${entry.providerId}' was skipped; native ignore behavior continued.` }));
-      return freezeFileDiscoveryResultV1({ text: formatFileDiscoveryReportV1(reportedCore), details: { completeness: core.completeness, workspaceRoot: core.workspaceRoot, requestedRoots: core.requestedRoots, rootDiagnostics: core.rootDiagnostics, queries: core.queries, roots: core.roots, cells: core.cells, candidates: core.candidates, coverage: core.coverage, filters: reportedCore.filters, providerOutcomes: core.providerOutcomes, filterDecisions: reportedCore.filterDecisions, retrySuggestions: core.retrySuggestions, truncated: false }, provenance: { schema: "@aefree/pi-file-discovery/execution-provenance", version: 1, canonical: canonicalOwner(resolvedOwner.packageVersion), providers, fallbacks } });
+      const report = formatFileDiscoveryReportObservationV1(reportedCore);
+      const result = freezeFileDiscoveryResultV1({ native: reportedCore, reportTruncated: report.truncated, text: report.text, details: { completeness: core.completeness, workspaceRoot: core.workspaceRoot, requestedRoots: core.requestedRoots, rootDiagnostics: core.rootDiagnostics, queries: core.queries, roots: core.roots, cells: core.cells, candidates: core.candidates, coverage: core.coverage, filters: reportedCore.filters, providerOutcomes: core.providerOutcomes, filterDecisions: reportedCore.filterDecisions, retrySuggestions: core.retrySuggestions, truncated: false }, provenance: { schema: "@aefree/pi-file-discovery/execution-provenance", version: 1, canonical: canonicalOwner(resolvedOwner.packageVersion), providers, fallbacks } });
+      if (core.failure) throw new FileDiscoveryServiceErrorV1(result);
+      return result;
     },
   });
 }

@@ -1,4 +1,8 @@
-import { type FileDiscoveryExecutionContextV1, type FileDiscoveryOwnerV1, type FileDiscoveryServiceV1 } from "./contracts/v1/index.js";
+import { type FileDiscoveryExecutionContextV1, type FileDiscoveryOwnerV1, type FileDiscoveryResultV1, type FileDiscoveryServiceV1 } from "./contracts/v1/index.js";
+export declare class FileDiscoveryServiceErrorV1 extends Error {
+    readonly result: FileDiscoveryResultV1;
+    constructor(result: FileDiscoveryResultV1);
+}
 export declare const DISCOVER_CANDIDATE_FILES_TOOL_NAME: "discover_candidate_files";
 export declare const FILE_DISCOVERY_SERVICE_ID: "file-discovery.ripgrep";
 export declare const FILE_DISCOVERY_PACKAGE_NAME: "@aefree/pi-file-discovery";

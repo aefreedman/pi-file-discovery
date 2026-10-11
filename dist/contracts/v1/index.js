@@ -1,3 +1,4 @@
+export * from "./output.js";
 import { createCapabilityRegistry, } from "@aefree/pi-capability-registry";
 export const FILE_DISCOVERY_CONTRACT_VERSION_V1 = 1;
 export const FILE_DISCOVERY_FILTER_REGISTRY_KEY_V1 = "@aefree/pi-file-discovery/filters/v1";

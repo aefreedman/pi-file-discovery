@@ -1,3 +1,5 @@
+import type { CoreFileDiscoveryResultV1 } from "../../core/file-discovery.js";
+export * from "./output.js";
 import { type CapabilityRegistry, type RegistryOwner, type RegistryRecord, type VersionCatalog } from "@aefree/pi-capability-registry";
 export declare const FILE_DISCOVERY_CONTRACT_VERSION_V1: 1;
 export declare const FILE_DISCOVERY_FILTER_REGISTRY_KEY_V1: "@aefree/pi-file-discovery/filters/v1";
@@ -61,6 +63,8 @@ export interface FileDiscoveryExecutionProvenanceV1 {
     readonly fallbacks: readonly FallbackDecisionV1[];
 }
 export interface FileDiscoveryResultV1 {
+    readonly native?: CoreFileDiscoveryResultV1;
+    readonly reportTruncated?: boolean;
     readonly text: string;
     readonly details: Readonly<Record<string, unknown>>;
     readonly provenance: FileDiscoveryExecutionProvenanceV1;

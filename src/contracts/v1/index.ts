@@ -1,3 +1,5 @@
+import type { CoreFileDiscoveryResultV1 } from "../../core/file-discovery.js";
+export * from "./output.js";
 import {
   createCapabilityRegistry,
   type CapabilityRegistry,
@@ -42,7 +44,7 @@ export interface FileDiscoveryExecutionProvenanceV1 {
   readonly providers: readonly ProviderExecutionProvenanceV1[];
   readonly fallbacks: readonly FallbackDecisionV1[];
 }
-export interface FileDiscoveryResultV1 { readonly text: string; readonly details: Readonly<Record<string, unknown>>; readonly provenance: FileDiscoveryExecutionProvenanceV1; }
+export interface FileDiscoveryResultV1 { readonly native?: CoreFileDiscoveryResultV1; readonly reportTruncated?: boolean; readonly text: string; readonly details: Readonly<Record<string, unknown>>; readonly provenance: FileDiscoveryExecutionProvenanceV1; }
 
 export interface FileDiscoveryFilterRequestV1 { readonly workspaceRoot: string; readonly roots: readonly string[]; readonly includeHidden: boolean; readonly signal: AbortSignal; }
 export type FileDiscoveryFilterDecisionV1 = "applied" | "bypassed" | "skipped" | "degraded";

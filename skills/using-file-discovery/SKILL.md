@@ -14,3 +14,5 @@ Prefer `read` for an exact file/path. Prefer narrow direct `rg` for a known symb
 Broad discovery uses recommended relevance filters. An exact generated/cache root is intentional and can be searched directly; malformed or unavailable provider data is skipped and disclosed while native discovery continues.
 
 This tool is not a sandbox, permission system, or access-control boundary: an agent can use `read` or Bash instead. Physical selected-scope containment, deterministic executable selection, cancellation, and process/output bounds keep this discovery call from becoming accidentally broad, nondeterministic, or wasteful.
+
+For programmatic consumers, see the [native output contract](../../src/contracts/v1/OUTPUT.md). Codemode returns the DTO directly: check `ok` and coverage before using exact candidate paths. A structured data failure can resolve `ok:false`; a no-DTO failure can reject. Full output is reasonable for small results; select paths/coverage when that is all you need.
