@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.2.0] - 2026-10-12
+
 ### Changed
 
 - Align package-local Pi validation dependencies with latest stable 1.1.0.
