@@ -4,7 +4,7 @@ import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { executeFileDiscoveryV1, FileDiscoveryExecutionErrorV1 } from '../dist/core/file-discovery.js';
@@ -13,7 +13,7 @@ import { fixture } from './fixtures/discovery.mjs';
 
 // Isolated Node test worker. Replace only the subprocess seam, never launch fake executables.
 test('scripted process errors, timeout, cancellation and malformed capture cannot establish absence', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'discovery-process-'));
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'discovery-process-')));
   const original = childProcess.spawn; let behavior; let calls = 0;
   const controller = new AbortController();
   childProcess.spawn = () => {
