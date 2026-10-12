@@ -8,6 +8,8 @@ import { Type } from "typebox";
 
 // Deterministic scripted local model only; no provider/network calls, user resources or real sessions.
 const root = await mkdtemp(path.join(os.tmpdir(), "discovery-host-"));
+// Also exercise a disposable packed installation with host peers deliberately absent.
+const packageRoot = process.env.PI_FILE_DISCOVERY_TEST_PACKAGE ?? path.resolve(".");
 const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
 let nextCall: { name: string; arguments: any } | undefined;
 let hookMode: "none" | "drop" | "alter" | "block" = "none";
@@ -15,7 +17,7 @@ const events: any[] = []; const nested: any[] = [];
 let session: any;
 try {
   await writeFile(path.join(root, "雪.txt"), "needle Unicode 雪\n");
-  const settingsManager = SettingsManager.inMemory({ defaultTools: ["discover_candidate_files", "codemode", "nested_fixture", "throws_fixture"], compaction: { enabled: false }, retry: { enabled: false } });
+  const settingsManager = SettingsManager.inMemory({ packages: [packageRoot], defaultTools: ["discover_candidate_files", "codemode", "nested_fixture", "throws_fixture"], compaction: { enabled: false }, retry: { enabled: false } });
   const modelRuntime = await ModelRuntime.create({ authPath: path.join(root, "auth.json"), modelsPath: null, modelsStorePath: path.join(root, "models-cache.json"), refreshOnCreate: false, allowModelNetwork: false });
   modelRuntime.registerProvider("local-script", { api: "local-script", apiKey: "fixture-only", baseUrl: "http://invalid.local", models: [{ id: "script", name: "Local Script", api: "local-script", reasoning: false, input: ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 100000, maxTokens: 1000 }],
     streamSimple(model: any) {
@@ -34,7 +36,7 @@ try {
       }); return stream;
     },
   });
-  const resourceLoader = new DefaultResourceLoader({ cwd: root, agentDir: path.join(root, "agent"), settingsManager, additionalExtensionPaths: [path.resolve("extensions/index.ts")], noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true,
+  const resourceLoader = new DefaultResourceLoader({ cwd: root, agentDir: path.join(root, "agent"), settingsManager, noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true,
     extensionFactories: [createCodemodeExtension({ mode: "on" }), (pi) => {
       pi.registerTool({ name: "nested_fixture", label: "Nested", description: "Fixture", parameters: Type.Object({}), async execute(_id, _params, _signal, _update, ctx) {
         const outcome = await ctx.executeTool("discover_candidate_files", { queries: [{ pattern: "needle", mode: "literal" }] }); nested.push(outcome);
@@ -49,6 +51,7 @@ try {
       });
     }] });
   await resourceLoader.reload(); assert.deepEqual(resourceLoader.getExtensions().errors, []);
+  assert.deepEqual(resourceLoader.getExtensions().warnings ?? [], [], "package must load without host-provided dependency warnings");
   ({ session } = await createAgentSession({ cwd: root, modelRuntime, model: modelRuntime.getModel("local-script", "script")!, settingsManager, resourceLoader, sessionManager: SessionManager.inMemory(root), tools: ["discover_candidate_files", "codemode", "nested_fixture", "throws_fixture"] }));
   await session.bindExtensions({});
   session.subscribe((e: any) => { events.push(JSON.parse(JSON.stringify(e))); });

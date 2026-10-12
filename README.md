@@ -62,7 +62,7 @@ This tool is not a sandbox, permission system, or access-control boundary: an ag
 
 ## Contracts and packaging
 
-Import `@aefree/pi-file-discovery/contracts/v1` for `FileDiscoveryFilterV1` and `FileDiscoveryServiceV1`. Filters use the registry key `@aefree/pi-file-discovery/filters/v1`. Contract imports are side-effect free. The package includes authored `src/` for the Pi TypeScript adapter and compiled `dist/` for Node contract consumers; source maps support debugging against that included source.
+Import `@aefree/pi-file-discovery/contracts/v1` for `FileDiscoveryFilterV1` and `FileDiscoveryServiceV1`. Filters use the registry key `@aefree/pi-file-discovery/filters/v1`. Contract imports are side-effect free. TypeBox is a required `"*"` peer dependency, supplied by Pi for managed extension installations. Ordinary standalone npm installs automatically install this peer; consumers that disable peer installation must supply `typebox` themselves. The Pi SDK peers remain optional for standalone use. Local development pins TypeBox to the version used by the supported Pi host. The package includes authored `src/` for the Pi TypeScript adapter and compiled `dist/` for Node contract consumers; source maps support debugging against that included source.
 
 ```bash
 npm test

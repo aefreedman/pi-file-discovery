@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.2.1] - 2026-10-12
+
+### Fixed
+
+- Declare host-provided TypeBox as a required `"*"` peer instead of a production dependency, avoiding Pi package-loader warnings and duplicate runtime modules; pin the supported host version for development.
+- Load the package manifest in actual Pi host tests and reject dependency warnings; retain isolated standalone ESM validation with the required TypeBox peer and add a peer-suppressed packed-host check.
+
 ## [0.2.0] - 2026-10-12
 
 ### Changed

@@ -19,8 +19,11 @@ const canonical = await service.createFileDiscoveryServiceV1(); assert.equal(can
 assert.equal(canonical.owner.packageName, '@aefree/pi-file-discovery'); assert(canonical.owner.packageRoot.startsWith(root));
 assert(requireFromFixture.resolve('typebox').startsWith(root));
 const manifest = JSON.parse(await readFile(path.join(root, 'node_modules/@aefree/pi-file-discovery/package.json'), 'utf8'));
-assert.equal(manifest.version, '0.2.0'); assert.equal(manifest.dependencies.typebox, '^1.3.8');
+assert.equal(manifest.version, '0.2.1');
+assert.equal(manifest.dependencies?.typebox, undefined);
+assert.equal(manifest.peerDependencies.typebox, '*');
+assert.notEqual(manifest.peerDependenciesMeta?.typebox?.optional, true, 'standalone consumers require the TypeBox peer');
 for (const name of ['typebox', '@aefree/pi-capability-registry']) {
   const installed = JSON.parse(await readFile(path.join(root, 'node_modules', name, 'package.json'), 'utf8')); console.log(`${name} ${installed.version}`);
 }
-console.log('PASS: packed standalone bare ESM core/contracts/service with only declared production dependencies; no Pi peers or workspace resolution');
+console.log('PASS: packed standalone bare ESM core/contracts/service with declared runtime dependency and required TypeBox peer; no Pi SDK peers or workspace resolution');

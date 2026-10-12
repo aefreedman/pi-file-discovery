@@ -30,4 +30,4 @@ text(r.ok ? {paths:r.observation.candidates.map(c=>c.path),coverage:r.observatio
 
 Producer validation ends at the adapter. Hooks may change/drop the DTO. Ordinary persisted tool results do not preserve this execution channel; no DTO duplication into details or restoration of redacted values is performed.
 
-The public schema uses the existing TypeBox library as a declared production dependency, so standalone contracts/core/service imports do not require optional Pi peers. Ripgrep prerequisite failure retains a safe actionable installation/configuration message, never the configured executable path.
+The public schema uses TypeBox as a required `"*"` peer dependency, not a bundled production dependency. Pi supplies it through its extension loader; ordinary standalone npm installs supply the required peer without installing optional Pi SDK peers. Consumers disabling peer installation must supply TypeBox explicitly. Ripgrep prerequisite failure retains a safe actionable installation/configuration message, never the configured executable path.
